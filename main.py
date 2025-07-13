@@ -23,7 +23,6 @@ from bot.ollama_client import OllamaClient
 from bot.chat_client import NakenChatClient
 from bot.rate_limiter import RateLimiter
 from bot.context_manager import ContextManager
-from bot.command_handler import CommandHandler
 from bot.message_processor import MessageProcessor
 
 class NakenChatAIBot:
@@ -39,7 +38,6 @@ class NakenChatAIBot:
         self.chat_client = None
         self.rate_limiter = None
         self.context_manager = None
-        self.command_handler = None
         self.message_processor = None
         
         # Control flags
@@ -70,6 +68,11 @@ class NakenChatAIBot:
     
     def setup_components(self):
         """Initialize all bot components"""
+        if not self.config:
+            raise ValueError("Configuration not loaded")
+        if not self.logger:
+            raise ValueError("Logger not initialized")
+            
         try:
             # Initialize rate limiter
             self.rate_limiter = RateLimiter(self.config)
@@ -83,16 +86,6 @@ class NakenChatAIBot:
             self.ollama_client = OllamaClient(self.config, self.logger, self.config['bot']['name'])
             self.logger.info("Ollama client initialized")
             
-            # Initialize command handler
-            self.command_handler = CommandHandler(
-                self.config, 
-                self.logger, 
-                self.ollama_client, 
-                self.rate_limiter, 
-                self.context_manager
-            )
-            self.logger.info("Command handler initialized")
-            
             # Initialize message processor
             self.message_processor = MessageProcessor(
                 self.config,
@@ -101,7 +94,7 @@ class NakenChatAIBot:
                 None,  # Will be set after chat client is created
                 self.rate_limiter,
                 self.context_manager,
-                self.command_handler
+                None  # No command handler needed
             )
             self.logger.info("Message processor initialized")
             
@@ -140,7 +133,6 @@ class NakenChatAIBot:
                         self.logger.info(f"Available models: {models}")
                         # Use first available model
                         self.config['ollama']['model'] = models[0]
-                        self.command_handler.current_model = models[0]
                         self.logger.info(f"Using model: {models[0]}")
                 
         except Exception as e:
@@ -169,7 +161,7 @@ class NakenChatAIBot:
             self.logger.info("Bot started successfully!")
             self.logger.info(f"Bot name: {self.config['bot']['name']}")
             self.logger.info(f"Trigger word: {self.config['bot']['trigger']}")
-            self.logger.info(f"Current model: {self.command_handler.get_current_model()}")
+            self.logger.info(f"Current model: {self.config['ollama']['model']}")
             
             # Wait for shutdown signal
             await self.shutdown_event.wait()

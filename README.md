@@ -8,7 +8,7 @@ A Python-based AI bot for NakenChat that connects to Ollama for intelligent resp
 - 🎯 **Trigger-Based**: Responds when mentioned by name (configurable)
 - 💬 **Context Awareness**: Maintains conversation context for better responses
 - ⚡ **Rate Limiting**: Prevents spam and abuse
-- 🛠️ **Bot Commands**: Built-in commands for configuration and information
+- 🔒 **Private Message Filtering**: Ignores private messages automatically
 - 🔄 **Auto-Reconnect**: Automatically reconnects to chat server
 - 📝 **Logging**: Comprehensive logging with colored console output
 - 🖥️ **Modern GUI**: Beautiful desktop interface with real-time monitoring
@@ -70,13 +70,13 @@ Edit `config.yaml` to customize the bot:
 ```yaml
 # Bot Configuration
 bot:
-  name: "NakenBot"              # Bot's display name
-  trigger: "NakenBot"           # Trigger word (case-insensitive)
-  username: "NakenBot"          # Username in chat
-  response_delay: 1.0        # Delay before responding (seconds)
-  max_response_length: 200   # Maximum response length
-  enable_context: true       # Enable conversation context
-  context_length: 5          # Number of messages to remember
+  name: "Mia"                  # Bot's display name (used in responses)
+  trigger: "Mia"               # Trigger word for AI responses (case-insensitive)
+  username: "Mia"              # Username in chat server
+  response_delay: 1.0          # Delay before responding (seconds)
+  max_response_length: 200     # Maximum response length
+  enable_context: true         # Enable conversation context
+  context_length: 5            # Number of messages to remember
 
 # Ollama Settings
 ollama:
@@ -125,16 +125,18 @@ User: Mia, what's the weather like?
 Bot: I don't have access to real-time weather data, but I can help you with other questions!
 ```
 
-**Use bot commands:**
-- `/help` - Show available commands
-- `/model llama2` - Change AI model
-- `/models` - List available models
-- `/stats` - Show bot statistics
-- `/context` - Show conversation context
-- `/clear` - Clear your conversation context
-- `/ping` - Test bot response
-- `/info` - Show bot information
-- `/reset` - Reset rate limiting
+*Note: Replace "Mia" with your bot's configured name from config.yaml*
+
+**The bot will respond to:**
+- Public messages that mention the bot's name
+- Questions, statements, or any text after the bot's name
+- Messages in the main chat channel
+
+**The bot will ignore:**
+- Private messages (sent via `.p <number> <message>`)
+- System messages and server notifications
+- Messages that don't contain the bot's name
+- Bot's own messages
 
 ### Stopping the Bot
 
@@ -142,19 +144,38 @@ Bot: I don't have access to real-time weather data, but I can help you with othe
 
 **GUI**: Click the "Stop Bot" button or close the window.
 
-## Bot Commands
+## Message Handling
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Show help information |
-| `/model <name>` | Change AI model |
-| `/models` | List available models |
-| `/stats` | Show bot statistics |
-| `/context` | Show conversation context |
-| `/clear` | Clear your conversation context |
-| `/ping` | Test bot response |
-| `/info` | Show bot information |
-| `/reset` | Reset rate limiting |
+### What the Bot Responds To
+- **Public messages** that contain the bot's name (e.g., "Mia, what's the weather?")
+- **Questions and statements** after the bot's name
+- **Main chat channel** messages only
+
+### What the Bot Ignores
+- **Private messages** sent via `.p <number> <message>` command
+- **System messages** and server notifications
+- **Messages without the bot's name**
+- **Bot's own messages** to prevent loops
+- **Server commands** and status messages
+
+### Examples
+
+**Bot will respond:**
+```
+User: Mia, how are you today?
+Bot: I'm doing well, thank you for asking! How about you?
+
+User: What do you think about AI, Mia?
+Bot: AI is a fascinating field with many applications...
+```
+
+**Bot will ignore:**
+```
+<9>bob (private): hi Mia
+>> Message sent to [8]Derrick: <9>bob (private): hi
+>> Total: 15 users
+[1]Derrick: Hello everyone (no bot name mentioned)
+```
 
 ## Troubleshooting
 
@@ -190,6 +211,15 @@ Log levels:
 - `INFO`: General information
 - `WARNING`: Warning messages
 - `ERROR`: Error messages
+
+## Recent Improvements
+
+### v1.1.0 - Simplified and Enhanced
+- **Removed command system** - Bot now focuses purely on AI responses
+- **Added private message filtering** - Automatically ignores private messages
+- **Improved shutdown handling** - Clean disconnection without task errors
+- **Enhanced message processing** - Better detection of system messages and bot triggers
+- **Fixed reconnection logic** - More reliable auto-reconnection to chat server
 
 ## Development
 

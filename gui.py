@@ -547,8 +547,12 @@ class BotGUI:
                 self.gui = gui
             
             def write(self, message):
-                if message.strip():
-                    self.gui.add_log(message.strip())
+                try:
+                    if message.strip():
+                        self.gui.add_log(message.strip())
+                except Exception:
+                    # GUI might be destroyed, ignore logging errors
+                    pass
             
             def flush(self):
                 pass
@@ -558,18 +562,22 @@ class BotGUI:
     
     def add_log(self, message):
         """Add a log message to the GUI"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        formatted_message = f"[{timestamp}] {message}\n"
-        
-        # Add to logs text area
-        self.logs_text.insert("end", formatted_message)
-        self.logs_text.see("end")
-        
-        # Limit log size
-        lines = self.logs_text.get("1.0", "end").split('\n')
-        if len(lines) > 1000:
-            # Remove first 200 lines
-            self.logs_text.delete("1.0", "201.0")
+        try:
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            formatted_message = f"[{timestamp}] {message}\n"
+            
+            # Add to logs text area
+            self.logs_text.insert("end", formatted_message)
+            self.logs_text.see("end")
+            
+            # Limit log size
+            lines = self.logs_text.get("1.0", "end").split('\n')
+            if len(lines) > 1000:
+                # Remove first 200 lines
+                self.logs_text.delete("1.0", "201.0")
+        except Exception:
+            # GUI might be destroyed, ignore logging errors
+            pass
     
     def update_stats(self):
         """Update statistics display"""
@@ -583,7 +591,7 @@ class BotGUI:
                 processing_stats = self.bot.message_processor.get_processing_stats()
                 
                 stats = f"""Status: Running
-Model: {self.bot.command_handler.get_current_model()}
+Model: {self.bot.config['ollama']['model']}
 Rate Limit: {rate_stats['global_requests']}/{rate_stats['global_limit']}
 Active Users: {context_stats['total_users']}
 Context Messages: {context_stats['global_context_length']}
@@ -660,8 +668,17 @@ Active Tasks: {processing_stats['active_tasks']}"""
                 # Create a new event loop for stopping
                 stop_loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(stop_loop)
-                stop_loop.run_until_complete(self.bot.stop())
-                stop_loop.close()
+                
+                # Stop the bot with a timeout
+                try:
+                    stop_loop.run_until_complete(asyncio.wait_for(self.bot.stop(), timeout=5.0))
+                except asyncio.TimeoutError:
+                    self.add_log("Warning: Bot stop timed out, forcing shutdown")
+                except Exception as e:
+                    self.add_log(f"Error stopping bot: {e}")
+                finally:
+                    stop_loop.close()
+                    
             except Exception as e:
                 self.add_log(f"Error stopping bot: {e}")
         
@@ -685,8 +702,12 @@ Active Tasks: {processing_stats['active_tasks']}"""
     def on_closing(self):
         """Handle window closing"""
         if self.running:
+            self.add_log("Shutting down bot...")
             self.stop_bot()
-        self.root.destroy()
+            # Give a moment for cleanup
+            self.root.after(100, self.root.destroy)
+        else:
+            self.root.destroy()
     
     def run(self):
         """Start the GUI"""

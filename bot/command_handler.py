@@ -26,9 +26,9 @@ class CommandHandler:
         
         self.current_model = config['ollama']['model']
     
-    async def handle_command(self, username: str, message: str) -> Optional[str]:
+    async def handle_command(self, username: str, message: str, trigger: str) -> Optional[str]:
         """Handle a bot command and return response"""
-        parsed = parse_command(message)
+        parsed = parse_command(message, trigger)
         if not parsed:
             return None
         
@@ -39,7 +39,7 @@ class CommandHandler:
         
         # Check if command exists
         if command not in self.commands:
-            return f"Unknown command: {command}. Type /help for available commands."
+            return f"Unknown command: {command}. Type '{trigger} help' for available commands."
         
         # Execute command
         try:
@@ -51,17 +51,18 @@ class CommandHandler:
     
     async def _cmd_help(self, username: str, args: str) -> str:
         """Show help information"""
-        help_text = """
+        bot_name = self.config['bot']['name']
+        help_text = f"""
 Available commands:
-/help - Show this help message
-/model <name> - Change AI model (e.g., /model llama2)
-/models - List available models
-/stats - Show bot statistics
-/context - Show context information
-/clear - Clear your conversation context
-/ping - Test bot response
-/info - Show bot information
-/reset - Reset rate limiting for your user
+{bot_name} help - Show this help message
+{bot_name} model <name> - Change AI model (e.g., {bot_name} model llama2)
+{bot_name} models - List available models
+{bot_name} stats - Show bot statistics
+{bot_name} context - Show context information
+{bot_name} clear - Clear your conversation context
+{bot_name} ping - Test bot response
+{bot_name} info - Show bot information
+{bot_name} reset - Reset rate limiting for your user
 
 To ask me something, just mention my name followed by your question!
         """.strip()

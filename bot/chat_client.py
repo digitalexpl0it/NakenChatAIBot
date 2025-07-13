@@ -17,6 +17,7 @@ class NakenChatClient:
         self.is_connected = False
         self.reconnect_attempts = 0
         self.reconnect_task = None
+        self.listen_task = None  # Track the listening task
         self.should_stop = False
         
     async def connect(self) -> bool:
@@ -41,7 +42,7 @@ class NakenChatClient:
             await asyncio.sleep(1)
             
             # Start listening for messages
-            asyncio.create_task(self._listen_for_messages())
+            self.listen_task = asyncio.create_task(self._listen_for_messages())
             
             return True
             
@@ -51,8 +52,30 @@ class NakenChatClient:
     
     async def disconnect(self):
         """Disconnect from NakenChat server"""
+        # Set shutdown flag first
+        self.should_stop = True
+        self.is_connected = False
+        
+        # Cancel listening task
+        if self.listen_task and not self.listen_task.done():
+            self.listen_task.cancel()
+            try:
+                await self.listen_task
+            except asyncio.CancelledError:
+                pass
+            self.listen_task = None
+        
+        # Cancel reconnection task
+        if self.reconnect_task and not self.reconnect_task.done():
+            self.reconnect_task.cancel()
+            try:
+                await self.reconnect_task
+            except asyncio.CancelledError:
+                pass
+            self.reconnect_task = None
+        
         # Send .q command to properly disconnect from the server first
-        if self.writer and self.is_connected:
+        if self.writer:
             try:
                 await self.send_command(".q")
                 self.logger.info("Sent .q command to disconnect from server")
@@ -61,14 +84,7 @@ class NakenChatClient:
             except Exception as e:
                 self.logger.warning(f"Failed to send .q command: {e}")
         
-        # Now set flags and cleanup
-        self.is_connected = False
-        self.should_stop = True
-        
-        if self.reconnect_task:
-            self.reconnect_task.cancel()
-            self.reconnect_task = None
-        
+        # Close writer
         if self.writer:
             self.writer.close()
             try:
@@ -105,37 +121,46 @@ class NakenChatClient:
     async def _listen_for_messages(self):
         """Listen for incoming messages from the server"""
         try:
-            while self.is_connected and self.reader:
+            while self.is_connected and self.reader and not self.should_stop:
                 try:
                     # Read line from server
                     data = await self.reader.readline()
                     
                     if not data:
                         # Connection closed by server
-                        self.logger.warning("Server closed connection")
+                        if not self.should_stop:
+                            self.logger.warning("Server closed connection")
                         break
                     
                     # Decode and process message
                     message = data.decode('utf-8', errors='ignore')
                     
                     # Debug: Log raw message to see what's causing the error
-                    self.logger.debug(f"Raw message from server: {repr(message)}")
+                    if not self.should_stop:
+                        self.logger.debug(f"Raw message from server: {repr(message)}")
                     
                     await self._process_message(message)
                     
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
-                    self.logger.error(f"Error reading message: {e}")
-                    # Log the last message that might have caused the error
-                    if 'data' in locals():
-                        self.logger.error(f"Last message was: {repr(data.decode('utf-8', errors='ignore') if data else 'None')}")
+                    if not self.should_stop:
+                        self.logger.error(f"Error reading message: {e}")
+                        # Log the last message that might have caused the error
+                        if 'data' in locals():
+                            self.logger.error(f"Last message was: {repr(data.decode('utf-8', errors='ignore') if data else 'None')}")
                     break
             
+        except asyncio.CancelledError:
+            # Task was cancelled, exit gracefully
+            pass
         except Exception as e:
-            self.logger.error(f"Error in message listener: {e}")
+            if not self.should_stop:
+                self.logger.error(f"Error in message listener: {e}")
         finally:
-            await self._handle_connection_error()
+            # Only handle connection error if we're not shutting down
+            if not self.should_stop:
+                await self._handle_connection_error()
     
     async def _process_message(self, message: str):
         """Process incoming message"""
@@ -184,6 +209,8 @@ class NakenChatClient:
             r'^http://',  # Any HTTP URLs
             r'^email:',  # Email messages
             r'^Command from https:',  # Command info messages
+            r'^<(\d+)>[^:]+ \(private\):',  # Private messages: <9>bob (private): hi
+            r'^Message sent to \[(\d+)\][^:]+: <(\d+)>[^:]+ \(private\):',  # Private message confirmations
         ]
         
         for pattern in system_patterns:
@@ -241,16 +268,17 @@ class NakenChatClient:
         self.is_connected = False
         
         # Check if we should stop reconnecting (bot might be shutting down)
-        if hasattr(self, 'should_stop') and self.should_stop:
-            self.logger.info("Bot is shutting down, stopping reconnection attempts")
+        if self.should_stop:
             return
         
         if self.reconnect_attempts >= self.config['max_reconnect_attempts']:
-            self.logger.error("Max reconnection attempts reached")
+            if not self.should_stop:
+                self.logger.error("Max reconnection attempts reached")
             return
         
         self.reconnect_attempts += 1
-        self.logger.info(f"Attempting reconnection {self.reconnect_attempts}/{self.config['max_reconnect_attempts']}")
+        if not self.should_stop:
+            self.logger.info(f"Attempting reconnection {self.reconnect_attempts}/{self.config['max_reconnect_attempts']}")
         
         # Schedule reconnection
         self.reconnect_task = asyncio.create_task(self._reconnect())
@@ -262,18 +290,20 @@ class NakenChatClient:
             
             # Check if we should stop reconnecting
             if self.should_stop:
-                self.logger.info("Bot is shutting down, stopping reconnection attempts")
                 return
             
             if await self.connect():
-                self.logger.info("Successfully reconnected")
+                if not self.should_stop:
+                    self.logger.info("Successfully reconnected")
             else:
                 # Schedule another reconnection attempt
-                self.reconnect_task = asyncio.create_task(self._reconnect())
+                if not self.should_stop:
+                    self.reconnect_task = asyncio.create_task(self._reconnect())
                 
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            self.logger.error(f"Reconnection failed: {e}")
-            # Schedule another reconnection attempt
-            self.reconnect_task = asyncio.create_task(self._reconnect()) 
+            if not self.should_stop:
+                self.logger.error(f"Reconnection failed: {e}")
+                # Schedule another reconnection attempt
+                self.reconnect_task = asyncio.create_task(self._reconnect()) 

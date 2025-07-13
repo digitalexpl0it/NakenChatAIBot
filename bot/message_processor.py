@@ -33,12 +33,7 @@ class MessageProcessor:
         # Add message to context
         self.context_manager.add_message(username, content, is_bot=False)
         
-        # Check if this is a command
-        if content.startswith('/'):
-            await self._handle_command(username, content)
-            return
-        
-        # Check if message contains bot trigger
+        # Check if message contains bot trigger (for AI responses)
         if not is_bot_trigger(content, self.trigger):
             return
         
@@ -57,17 +52,6 @@ class MessageProcessor:
         
         # Process the request
         await self._process_ai_request(username, prompt)
-    
-    async def _handle_command(self, username: str, content: str):
-        """Handle bot commands"""
-        response = await self.command_handler.handle_command(username, content)
-        
-        if response:
-            # Add bot response to context
-            self.context_manager.add_message(self.bot_config['username'], response, is_bot=True)
-            
-            # Send response
-            await self.chat_client.send_message(response)
     
     async def _process_ai_request(self, username: str, prompt: str):
         """Process an AI request and generate response"""
@@ -90,7 +74,7 @@ class MessageProcessor:
             context = self.context_manager.get_context(username)
             
             # Get current model
-            current_model = self.command_handler.get_current_model()
+            current_model = self.config['ollama']['model']
             
             # Generate response
             self.logger.info(f"Generating response for {username}: {prompt[:50]}...")

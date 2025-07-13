@@ -77,6 +77,25 @@ def is_bot_trigger(message: str, trigger: str) -> bool:
     # Case insensitive search
     return trigger.lower() in message.lower()
 
+def is_bot_command(message: str, trigger: str) -> bool:
+    """Check if message is a bot command (trigger followed by command)"""
+    if not message or not trigger:
+        return False
+    
+    # Look for trigger followed by a command
+    # Pattern: trigger command (e.g., "BotName help", "BotName model llama2")
+    trigger_lower = trigger.lower()
+    message_lower = message.lower()
+    
+    # Find trigger position
+    trigger_pos = message_lower.find(trigger_lower)
+    if trigger_pos == -1:
+        return False
+    
+    # Check if there's text after the trigger that could be a command
+    after_trigger = message[trigger_pos + len(trigger):].strip()
+    return len(after_trigger) > 0
+
 def truncate_response(response: str, max_length: int) -> str:
     """Truncate response to maximum length"""
     if len(response) <= max_length:
@@ -91,13 +110,25 @@ def truncate_response(response: str, max_length: int) -> str:
     
     return truncated + "..."
 
-def parse_command(message: str) -> Optional[Dict[str, Any]]:
-    """Parse bot commands like /help, /model llama2, etc."""
-    if not message.startswith('/'):
+def parse_command(message: str, trigger: str) -> Optional[Dict[str, Any]]:
+    """Parse bot commands like 'trigger help', 'trigger model llama2', etc."""
+    if not is_bot_command(message, trigger):
         return None
     
-    parts = message.split(maxsplit=1)
-    command = parts[0][1:].lower()  # Remove / and convert to lowercase
+    trigger_lower = trigger.lower()
+    message_lower = message.lower()
+    
+    # Find trigger position
+    trigger_pos = message_lower.find(trigger_lower)
+    if trigger_pos == -1:
+        return None
+    
+    # Extract text after trigger
+    after_trigger = message[trigger_pos + len(trigger):].strip()
+    
+    # Split into command and args
+    parts = after_trigger.split(maxsplit=1)
+    command = parts[0].lower()  # Convert to lowercase
     
     if len(parts) > 1:
         args = parts[1]
