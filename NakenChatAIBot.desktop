@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NakenChat AI Bot
+Comment=AI Bot for NakenChat with GUI
+Exec=/home/digitalexpl0it/Projects/NakenChatAIBot/start_gui.sh
+Icon=terminal
+Terminal=false
+Categories=Network;Chat;

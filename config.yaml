@@ -1,0 +1,37 @@
+behavior:
+  allowed_users: []
+  blocked_users: []
+  enable_commands: true
+  rate_limit:
+    enabled: true
+    max_requests: 10
+    time_window: 60
+  user_tracking: true
+bot:
+  context_length: 5
+  enable_context: true
+  max_response_length: 200
+  name: Mia
+  response_delay: 1.0
+  trigger: Mia
+  username: Mia
+logging:
+  console: true
+  file: bot.log
+  file_enabled: true
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+nakenchat:
+  host: loclhost
+  max_reconnect_attempts: 10
+  port: 6666
+  reconnect_delay: 5
+ollama:
+  host: http://localhost
+  max_tokens: 150
+  model: llama2:7b
+  port: 11434
+  system_prompt: You are {bot_name}, a helpful AI assistant in a chat room. Keep responses
+    short, clear, and friendly. Use plain text only. Never use markdown or formatting.
+  temperature: 0.7
+  timeout: 30

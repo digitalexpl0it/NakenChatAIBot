@@ -1,0 +1,7 @@
+# python3-tk is required for GUI support (install via apt, not pip)
+aiohttp==3.9.1
+asyncio-telnet==0.1.21
+pyyaml==6.0.1
+python-dotenv==1.0.0
+colorama==0.4.6
+customtkinter==5.2.2 
